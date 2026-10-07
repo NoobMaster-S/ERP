@@ -1,0 +1,22 @@
+# Python
+venv/
+*.py[cod]
+__pycache__/
+*.so
+
+# Environment & Secrets
+.env
+.env.local
+
+# Database
+db.sqlite3
+db.sqlite3-journal
+
+# Static & Media
+staticfiles/
+media/
+
+# IDE
+.vscode/
+.idea/
+*.swp

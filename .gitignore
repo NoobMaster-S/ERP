@@ -1,0 +1,45 @@
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/*.py[cod]
+backend/db.sqlite3
+backend/db.sqlite3-journal
+backend/staticfiles/
+backend/.env
+
+# Admin Panel (Next.js)
+admin-panel/node_modules/
+admin-panel/.next/
+admin-panel/out/
+admin-panel/.env*.local
+
+# Mobile App (Flutter)
+business-app/.dart_tool/
+business-app/.flutter-plugins
+business-app/.flutter-plugins-dependencies
+business-app/build/
+business-app/.fvm/
+business-app/windows/flutter/ephemeral/
+business-app/android/.gradle/
+business-app/android/build/
+business-app/android/app/build/
+
+# Keys, Keystores & Certificates
+*.jks
+*.keystore
+*.key
+*.pem
+*.p12
+*.pfx
+key.properties
+
+# Environment Files
+.env
+.env.*
+!.env.example
+
+# General
+.DS_Store
+*.log
+.vscode/
+.idea/
