@@ -235,39 +235,133 @@ class SyncEngine {
         final productsData = result.data?['products'] as List<dynamic>?;
         if (productsData != null) {
           for (final p in productsData) {
-            await _db.into(_db.localProductsTable).insertOnConflictUpdate(
-              LocalProductsTableCompanion(
-                id: Value(p['id'] as String),
-                serverId: Value(p['id'] as String),
-                businessId: const Value('demo-retail'),
-                name: Value(p['name'] as String),
-                sku: Value((p['sku'] as String?) ?? ''),
-                barcode: Value((p['barcode'] as String?) ?? ''),
-                sellingPrice: Value((p['sellingPrice'] as num).toDouble()),
-                costPrice: Value((p['costPrice'] as num).toDouble()),
-                currentStock: const Value(100.0),
-                isSynced: const Value(true),
-                updatedAt: Value(DateTime.now()),
-              ),
-            );
+            final srvId = p['id'] as String;
+            final sSku = (p['sku'] as String?) ?? '';
+            final sBarcode = (p['barcode'] as String?) ?? '';
+            final sName = p['name'] as String;
+            final sSellingPrice = (p['sellingPrice'] as num).toDouble();
+            final sCostPrice = (p['costPrice'] as num).toDouble();
+
+            // Find any matching local row by serverId, id, or non-empty sku
+            final existing = await (_db.select(_db.localProductsTable)
+                  ..where((tbl) =>
+                      tbl.serverId.equals(srvId) |
+                      tbl.id.equals(srvId) |
+                      (sSku.isNotEmpty ? tbl.sku.equals(sSku) : const Constant(false))))
+                .get();
+
+            if (existing.isNotEmpty) {
+              final target = existing.first;
+              await (_db.update(_db.localProductsTable)..where((tbl) => tbl.id.equals(target.id))).write(
+                LocalProductsTableCompanion(
+                  serverId: Value(srvId),
+                  name: Value(sName),
+                  sku: Value(sSku),
+                  barcode: Value(sBarcode),
+                  sellingPrice: Value(sSellingPrice),
+                  costPrice: Value(sCostPrice),
+                  isSynced: const Value(true),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
+
+              // Remove any other local duplicate rows for this same item
+              for (int i = 1; i < existing.length; i++) {
+                await (_db.delete(_db.localProductsTable)..where((tbl) => tbl.id.equals(existing[i].id))).go();
+              }
+            } else {
+              // Insert new product
+              await _db.into(_db.localProductsTable).insert(
+                LocalProductsTableCompanion(
+                  id: Value(srvId),
+                  serverId: Value(srvId),
+                  businessId: const Value('demo-retail'),
+                  name: Value(sName),
+                  sku: Value(sSku),
+                  barcode: Value(sBarcode),
+                  sellingPrice: Value(sSellingPrice),
+                  costPrice: Value(sCostPrice),
+                  currentStock: const Value(100.0),
+                  isSynced: const Value(true),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
+            }
+          }
+        }
+
+        // Deduplicate local products table by SKU, serverId, or exact name
+        final allLocalProds = await _db.select(_db.localProductsTable).get();
+        final seenProdKeys = <String, String>{};
+        for (final prod in allLocalProds) {
+          final key = (prod.serverId != null && prod.serverId!.isNotEmpty)
+              ? 'srv_${prod.serverId}'
+              : (prod.sku.isNotEmpty ? 'sku_${prod.sku}' : 'name_${prod.name.trim().toLowerCase()}');
+          if (seenProdKeys.containsKey(key)) {
+            await (_db.delete(_db.localProductsTable)..where((tbl) => tbl.id.equals(prod.id))).go();
+          } else {
+            seenProdKeys[key] = prod.id;
           }
         }
 
         final customersData = result.data?['customers'] as List<dynamic>?;
         if (customersData != null) {
           for (final c in customersData) {
-            await _db.into(_db.localCustomersTable).insertOnConflictUpdate(
-              LocalCustomersTableCompanion(
-                id: Value(c['id'] as String),
-                serverId: Value(c['id'] as String),
-                businessId: const Value('demo-retail'),
-                name: Value(c['name'] as String),
-                phone: Value((c['phone'] as String?) ?? ''),
-                currentBalance: Value((c['currentBalance'] as num).toDouble()),
-                isSynced: const Value(true),
-                updatedAt: Value(DateTime.now()),
-              ),
-            );
+            final srvId = c['id'] as String;
+            final sName = c['name'] as String;
+            final sPhone = (c['phone'] as String?) ?? '';
+            final sBalance = (c['currentBalance'] as num).toDouble();
+
+            final existing = await (_db.select(_db.localCustomersTable)
+                  ..where((tbl) =>
+                      tbl.serverId.equals(srvId) |
+                      tbl.id.equals(srvId) |
+                      (sPhone.isNotEmpty ? tbl.phone.equals(sPhone) : const Constant(false))))
+                .get();
+
+            if (existing.isNotEmpty) {
+              final target = existing.first;
+              await (_db.update(_db.localCustomersTable)..where((tbl) => tbl.id.equals(target.id))).write(
+                LocalCustomersTableCompanion(
+                  serverId: Value(srvId),
+                  name: Value(sName),
+                  phone: Value(sPhone),
+                  currentBalance: Value(sBalance),
+                  isSynced: const Value(true),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
+              for (int i = 1; i < existing.length; i++) {
+                await (_db.delete(_db.localCustomersTable)..where((tbl) => tbl.id.equals(existing[i].id))).go();
+              }
+            } else {
+              await _db.into(_db.localCustomersTable).insert(
+                LocalCustomersTableCompanion(
+                  id: Value(srvId),
+                  serverId: Value(srvId),
+                  businessId: const Value('demo-retail'),
+                  name: Value(sName),
+                  phone: Value(sPhone),
+                  currentBalance: Value(sBalance),
+                  isSynced: const Value(true),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
+            }
+          }
+        }
+
+        // Deduplicate local customers table by phone or serverId or exact name
+        final allLocalCusts = await _db.select(_db.localCustomersTable).get();
+        final seenCustKeys = <String, String>{};
+        for (final cust in allLocalCusts) {
+          final key = (cust.serverId != null && cust.serverId!.isNotEmpty)
+              ? 'srv_${cust.serverId}'
+              : (cust.phone.isNotEmpty ? 'phone_${cust.phone}' : 'name_${cust.name.trim().toLowerCase()}');
+          if (seenCustKeys.containsKey(key)) {
+            await (_db.delete(_db.localCustomersTable)..where((tbl) => tbl.id.equals(cust.id))).go();
+          } else {
+            seenCustKeys[key] = cust.id;
           }
         }
       }

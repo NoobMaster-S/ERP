@@ -114,7 +114,17 @@ class _PosBillingPageState extends State<PosBillingPage> {
       body: StreamBuilder<List<LocalProductsTableData>>(
         stream: widget.syncEngine.db.select(widget.syncEngine.db.localProductsTable).watch(),
         builder: (context, snapshot) {
-          final products = snapshot.data ?? [];
+          final rawProducts = snapshot.data ?? [];
+          final seen = <String>{};
+          final products = <LocalProductsTableData>[];
+          for (final p in rawProducts) {
+            final key = (p.serverId != null && p.serverId!.isNotEmpty)
+                ? 'srv_${p.serverId}'
+                : (p.sku.isNotEmpty ? 'sku_${p.sku}' : 'name_${p.name.trim().toLowerCase()}');
+            if (seen.add(key)) {
+              products.add(p);
+            }
+          }
           final filteredProducts = products.where((p) {
             if (_searchQuery.isEmpty) return true;
             final query = _searchQuery.toLowerCase();

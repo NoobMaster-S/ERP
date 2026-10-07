@@ -61,7 +61,17 @@ class _CustomersPageState extends State<CustomersPage> {
             child: StreamBuilder<List<LocalCustomersTableData>>(
               stream: widget.syncEngine.db.select(widget.syncEngine.db.localCustomersTable).watch(),
               builder: (context, snapshot) {
-                final customers = snapshot.data ?? [];
+                final rawCustomers = snapshot.data ?? [];
+                final seen = <String>{};
+                final customers = <LocalCustomersTableData>[];
+                for (final c in rawCustomers) {
+                  final key = (c.serverId != null && c.serverId!.isNotEmpty)
+                      ? 'srv_${c.serverId}'
+                      : (c.phone.isNotEmpty ? 'phone_${c.phone}' : 'name_${c.name.trim().toLowerCase()}');
+                  if (seen.add(key)) {
+                    customers.add(c);
+                  }
+                }
                 final filtered = customers.where((c) {
                   if (_searchQuery.isEmpty) return true;
                   final q = _searchQuery.toLowerCase();
