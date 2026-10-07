@@ -430,29 +430,6 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 12),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.delete_sweep_outlined, color: Colors.orangeAccent),
-              title: const Text('Clear Orders & Sales History'),
-              subtitle: const Text('Reset transaction history while preserving all products and customers'),
-              trailing: OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.orangeAccent),
-                onPressed: () async {
-                  await widget.syncEngine.clearOrders();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Orders cleared successfully. Products and customers preserved.'),
-                        backgroundColor: Color(0xFF10B981),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Clear Orders'),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text('Sign Out'),
               subtitle: const Text('Switch active business or user account'),

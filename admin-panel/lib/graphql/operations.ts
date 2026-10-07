@@ -182,3 +182,9 @@ export const GET_CUSTOMERS = `
   }
 `;
 
+export const CLEAR_ORDERS_MUTATION = `
+  mutation ClearOrders($confirm: Boolean!) {
+    clearOrders(confirm: $confirm)
+  }
+`;
+

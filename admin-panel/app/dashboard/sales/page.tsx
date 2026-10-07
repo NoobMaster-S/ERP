@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { executeGraphQL } from "@/lib/graphql/client";
-import { GET_SALES } from "@/lib/graphql/operations";
-import { Receipt, RefreshCw, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { GET_SALES, CLEAR_ORDERS_MUTATION } from "@/lib/graphql/operations";
+import { Receipt, RefreshCw, AlertCircle, CheckCircle2, Clock, Trash2 } from "lucide-react";
 
 interface SaleItem {
   id: string;
@@ -35,6 +35,9 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const fetchSales = async () => {
     if (!token || !activeBusiness) return;
@@ -59,6 +62,31 @@ export default function SalesPage() {
     }
   };
 
+  const handleClearOrders = async () => {
+    if (!token || !activeBusiness) return;
+    setClearing(true);
+    setError(null);
+    try {
+      const res = await executeGraphQL<{ clearOrders: boolean }>(
+        CLEAR_ORDERS_MUTATION,
+        { confirm: true },
+        token,
+        activeBusiness.id
+      );
+      if (res.data?.clearOrders) {
+        setSuccessMsg("All sales orders cleared successfully. Products and customer accounts were preserved.");
+        setShowClearConfirm(false);
+        fetchSales();
+      } else if (res.errors) {
+        setError(res.errors[0]?.message || "Failed to clear sales orders");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to clear sales orders");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   useEffect(() => {
     fetchSales();
   }, [token, activeBusiness]);
@@ -76,15 +104,93 @@ export default function SalesPage() {
           </p>
         </div>
 
-        <button
-          onClick={fetchSales}
-          className="btn btn-secondary"
-          style={{ display: "flex", alignItems: "center", gap: "8px" }}
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="btn btn-secondary"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              color: "var(--accent-danger, #ef4444)",
+              borderColor: "rgba(239, 68, 68, 0.3)",
+            }}
+          >
+            <Trash2 size={16} />
+            Clear Order History
+          </button>
+
+          <button
+            onClick={fetchSales}
+            className="btn btn-secondary"
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Clear Confirmation Modal */}
+      {showClearConfirm && (
+        <div
+          style={{
+            padding: "16px 20px",
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid var(--accent-danger)",
+            borderRadius: "var(--radius-md)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600, color: "var(--accent-danger)", fontSize: "0.95rem" }}>
+              Are you sure you want to clear all order history?
+            </div>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+              This will permanently delete all sales and reset invoice numbering back to #1. Products and customer accounts will NOT be affected.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => setShowClearConfirm(false)}
+              className="btn btn-secondary"
+              disabled={clearing}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleClearOrders}
+              className="btn btn-primary"
+              style={{ backgroundColor: "var(--accent-danger)", borderColor: "var(--accent-danger)" }}
+              disabled={clearing}
+            >
+              {clearing ? "Clearing..." : "Yes, Clear Orders"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {successMsg && (
+        <div
+          style={{
+            padding: "12px 16px",
+            backgroundColor: "rgba(16, 185, 129, 0.15)",
+            border: "1px solid var(--accent-success, #10b981)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--accent-success, #10b981)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <CheckCircle2 size={18} />
+          <span>{successMsg}</span>
+        </div>
+      )}
 
       {/* Error Notification */}
       {error && (
