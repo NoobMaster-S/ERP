@@ -126,6 +126,16 @@ class LoginInput:
 
 
 @strawberry.input
+class RegisterInput:
+    email: str
+    password: str
+    business_name: str
+    first_name: Optional[str] = ""
+    last_name: Optional[str] = ""
+    phone: Optional[str] = ""
+
+
+@strawberry.input
 class CreateBusinessInput:
     name: str
     slug: str

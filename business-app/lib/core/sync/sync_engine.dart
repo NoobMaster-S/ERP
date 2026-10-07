@@ -54,9 +54,9 @@ class SyncEngine {
     });
   }
 
-  /// Triggers outbox synchronization
-  Future<void> syncPendingOutbox() async {
-    if (_isSyncing) return;
+  /// Triggers outbox synchronization and returns status message
+  Future<String> syncPendingOutbox() async {
+    if (_isSyncing) return 'Sync is currently in progress...';
     _isSyncing = true;
     _statusController.add(SyncEngineStatus.syncing);
 
@@ -70,7 +70,7 @@ class SyncEngine {
       if (pendingEntries.isEmpty) {
         _statusController.add(SyncEngineStatus.idle);
         _isSyncing = false;
-        return;
+        return 'Outbox is up to date (0 pending items).';
       }
 
       // 2. Prepare GraphQL sync batch mutation input
@@ -106,6 +106,10 @@ class SyncEngine {
       );
 
       if (result.hasException) {
+        final errText = result.exception.toString();
+        final isAuthErr = errText.toLowerCase().contains('authentication') ||
+            errText.toLowerCase().contains('credentials');
+
         // Increment retry count on pending records
         for (final entry in pendingEntries) {
           final newCount = entry.retryCount + 1;
@@ -119,11 +123,14 @@ class SyncEngine {
                     : OutboxStatus.pending,
               ),
               lastAttemptedAt: Value(DateTime.now()),
-              lastError: Value(result.exception.toString()),
+              lastError: Value(errText),
             ),
           );
         }
         _statusController.add(SyncEngineStatus.error);
+        return isAuthErr
+            ? 'Authentication required: please log in to sync with cloud.'
+            : 'Sync error: $errText';
       } else {
         final results = result.data?['ingestSyncBatch']?['results'] as List<dynamic>?;
         if (results != null) {
@@ -176,10 +183,12 @@ class SyncEngine {
           }
         }
         _statusController.add(SyncEngineStatus.idle);
+        return 'Sync completed! ${pendingEntries.length} transaction(s) synchronized.';
       }
     } catch (e) {
       _isOffline = true;
       _statusController.add(SyncEngineStatus.error);
+      return 'Sync connection error: $e';
     } finally {
       _isSyncing = false;
     }

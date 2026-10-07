@@ -51,3 +51,10 @@ class AuthenticationTestCase(TestCase):
     def test_invalid_token_returns_none(self):
         payload = decode_jwt_token("totally.bogus.jwt.token")
         self.assertIsNone(payload)
+
+    def test_setup_owner_command(self):
+        from django.core.management import call_command
+        call_command('setup_owner', email='newowner@test.com', password='TestPassword123!', business_name='Test Shop')
+        created_user = User.objects.filter(email='newowner@test.com').first()
+        self.assertIsNotNone(created_user)
+        self.assertTrue(created_user.is_staff)

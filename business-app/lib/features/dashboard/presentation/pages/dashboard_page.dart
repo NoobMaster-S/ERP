@@ -238,10 +238,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 icon: Icons.sync,
                 onTap: () async {
                   final messenger = ScaffoldMessenger.of(context);
-                  await widget.syncEngine.syncPendingOutbox();
+                  final msg = await widget.syncEngine.syncPendingOutbox();
                   if (mounted) {
+                    final isError = msg.toLowerCase().contains('error') ||
+                        msg.toLowerCase().contains('required');
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('Sync completed.')),
+                      SnackBar(
+                        content: Text(msg),
+                        backgroundColor: isError
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF10B981),
+                      ),
                     );
                   }
                 },

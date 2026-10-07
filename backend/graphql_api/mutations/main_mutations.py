@@ -10,6 +10,7 @@ from graphql_api.types import (
     UserType,
     BusinessSummaryType,
     LoginInput,
+    RegisterInput,
     CreateBusinessInput,
     SyncBatchInput,
     SyncBatchResultType,
@@ -123,6 +124,92 @@ class Mutation:
             ),
             active_business=active_summary,
             available_businesses=all_summaries,
+        )
+
+    @strawberry.mutation
+    @transaction.atomic
+    def register(self, info: strawberry.Info, input: RegisterInput) -> AuthPayloadType:
+        clean_email = input.email.strip().lower()
+        if User.objects.filter(email=clean_email).exists():
+            raise ValidationError("A user with this email address already exists.")
+
+        user = User.objects.create_user(
+            email=clean_email,
+            password=input.password,
+            first_name=input.first_name or "",
+            last_name=input.last_name or "",
+            phone=input.phone or "",
+        )
+
+        base_slug = slugify(input.business_name) or "my-business"
+        slug = base_slug
+        counter = 1
+        while Business.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        business = Business.objects.create(
+            name=input.business_name,
+            slug=slug,
+            email=clean_email,
+            currency_code="INR",
+            currency_symbol="₹",
+            decimal_places=2,
+        )
+
+        roles_dict = initialize_tenant_roles(business)
+        owner_role = roles_dict.get('Owner')
+
+        hq_branch = Branch.objects.create(
+            business=business,
+            name="Main Branch",
+            code="HQ",
+            is_headquarters=True,
+            is_active=True,
+        )
+
+        Warehouse.objects.create(
+            business=business,
+            branch=hq_branch,
+            name="Main Warehouse",
+            code="WH-MAIN",
+            is_default=True,
+            is_active=True,
+        )
+
+        BusinessUser.objects.create(
+            business=business,
+            user=user,
+            role=owner_role,
+            is_active=True,
+        )
+
+        permissions = get_user_tenant_permissions(user, business)
+        access_token = create_access_token(user, tenant=business, permissions=permissions)
+        refresh_token = create_refresh_token(user)
+
+        active_summary = BusinessSummaryType(
+            id=business.id,
+            name=business.name,
+            slug=business.slug,
+            business_type=business.business_type,
+            role_name="Owner",
+            permissions=sorted(list(permissions)),
+        )
+
+        return AuthPayloadType(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserType(
+                id=user.id,
+                email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                phone=user.phone,
+                is_platform_admin=user.is_platform_admin,
+            ),
+            active_business=active_summary,
+            available_businesses=[active_summary],
         )
 
     @strawberry.mutation
