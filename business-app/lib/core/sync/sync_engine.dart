@@ -813,8 +813,33 @@ class SyncEngine {
     return saved;
   }
 
+  /// Clears local and cloud orders, preserving products and customers
+  Future<void> clearOrders() async {
+    // 1. Clear local Drift sales and outbox items for sales
+    await _db.delete(_db.localSalesTable).go();
+    await (_db.delete(_db.syncOutboxTable)..where((t) => t.entityType.equals('Sale'))).go();
+
+    // 2. Clear cloud orders via GraphQL
+    if (!_isOffline) {
+      try {
+        const mutation = r'''
+          mutation ClearOrders($confirm: Boolean!) {
+            clearOrders(confirm: $confirm)
+          }
+        ''';
+        await _client.mutate(
+          MutationOptions(
+            document: gql(mutation),
+            variables: {'confirm': true},
+          ),
+        ).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+  }
+
   void dispose() {
     _connectivitySubscription?.cancel();
     _statusController.close();
   }
 }
+

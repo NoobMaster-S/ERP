@@ -880,3 +880,21 @@ class Mutation:
             customer_name=sale.customer.name if sale.customer else 'Walk-in Customer',
             items=created_items,
         )
+
+    @strawberry.mutation
+    @transaction.atomic
+    def clear_orders(self, info: strawberry.Info, confirm: bool) -> bool:
+        user = info.context.user
+        if not user or not user.is_authenticated:
+            raise AuthenticationRequiredError()
+        tenant = info.context.tenant
+        if not tenant:
+            raise ValidationError("Active business context required.")
+
+        SaleItem.objects.filter(sale__business=tenant).delete()
+        Sale.objects.filter(business=tenant).delete()
+        InvoiceSequenceTracker.objects.filter(business=tenant).delete()
+        StockMovement.objects.filter(business=tenant, movement_type=MovementType.SALE).delete()
+        SyncOutboxLog.objects.filter(business=tenant, entity_type='Sale').delete()
+        SyncOutboxLog.objects.filter(business=tenant, mutation_type='CREATE_SALE').delete()
+        return True
