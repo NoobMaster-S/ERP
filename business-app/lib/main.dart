@@ -15,7 +15,7 @@ void main() async {
 
   // 1. Initialize Secure Storage & Local Drift Database
   final secureStorage = SecureStorageService();
-  final database = AppDatabase(NativeDatabase.memory());
+  final database = AppDatabase(openConnection());
 
   // 2. Initialize GraphQL Client Provider
   final gqlProvider = GraphQLClientProvider(secureStorage);

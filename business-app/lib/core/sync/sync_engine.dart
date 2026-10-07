@@ -213,6 +213,14 @@ class SyncEngine {
             phone
             currentBalance
           }
+          sales(limit: 50) {
+            id
+            invoiceNumber
+            grandTotal
+            paidAmount
+            paymentStatus
+            createdAt
+          }
         }
       ''';
 
@@ -362,6 +370,46 @@ class SyncEngine {
             await (_db.delete(_db.localCustomersTable)..where((tbl) => tbl.id.equals(cust.id))).go();
           } else {
             seenCustKeys[key] = cust.id;
+          }
+        }
+
+        final salesData = result.data?['sales'] as List<dynamic>?;
+        if (salesData != null) {
+          for (final s in salesData) {
+            final srvId = s['id'] as String;
+            final invNum = s['invoiceNumber'] as String;
+            final grandTotal = (s['grandTotal'] as num).toDouble();
+            final paidAmount = (s['paidAmount'] as num).toDouble();
+            final payStatus = s['paymentStatus'] as String;
+            final createdAt = DateTime.tryParse(s['createdAt'] as String? ?? '') ?? DateTime.now();
+
+            final existing = await (_db.select(_db.localSalesTable)
+                  ..where((t) => t.serverId.equals(srvId) | t.invoiceNumber.equals(invNum)))
+                .getSingleOrNull();
+
+            if (existing != null) {
+              await (_db.update(_db.localSalesTable)..where((t) => t.id.equals(existing.id))).write(
+                LocalSalesTableCompanion(
+                  serverId: Value(srvId),
+                  isSynced: const Value(true),
+                ),
+              );
+            } else {
+              await _db.into(_db.localSalesTable).insert(
+                LocalSalesTableCompanion(
+                  id: Value(srvId),
+                  serverId: Value(srvId),
+                  businessId: const Value('demo-retail'),
+                  invoiceNumber: Value(invNum),
+                  grandTotal: Value(grandTotal),
+                  paidAmount: Value(paidAmount),
+                  paymentStatus: Value(payStatus),
+                  idempotencyKey: Value(srvId),
+                  isSynced: const Value(true),
+                  createdAt: Value(createdAt),
+                ),
+              );
+            }
           }
         }
       }
