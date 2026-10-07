@@ -12,8 +12,8 @@ class AppConfig {
   });
 
   static AppConfig current = const AppConfig(
-    environment: Environment.development,
-    apiBaseUrl: 'http://127.0.0.1:8000/graphql/', // Routed via adb reverse tcp:8000 tcp:8000
+    environment: Environment.production,
+    apiBaseUrl: 'https://erp-backend-mskf.onrender.com/graphql/',
     appName: 'ERP Business POS',
   );
 }
